@@ -17,16 +17,18 @@ from time import sleep
 # slack.im
 #
 # channelId is the id of the channel/group/im you want to download history for.
-def getHistory(pageableObject, channelId, pageSize = 100):
+def getHistory(pageableObject, channelId, pageSize = 1000, useLimit=False):
     messages = []
     lastTimestamp = None
-
+    countLimit = {'count': pageSize}
+    if useLimit:
+        countLimit = {'limit': pageSize}
     while(True):
         response = pageableObject.history(
             channel = channelId,
             latest    = lastTimestamp,
             oldest    = 0,
-            count     = pageSize
+            **countLimit
         ).body
 
         messages.extend(response['messages'])
@@ -37,7 +39,7 @@ def getHistory(pageableObject, channelId, pageSize = 100):
         else:
             break
 
-        messages.sort(key = lambda message: message['ts'])
+    messages.sort(key = lambda message: message['ts'])
 
     return messages
 
@@ -207,7 +209,7 @@ def fetchGroups(groups):
         mkdir(groupDir)
         messages = []
         print("Fetching history for Private Channel / Group DM: {0}".format(group['name']))
-        messages = getHistory(slack.groups, group['id'])
+        messages = getHistory(slack.conversations, group['id'], useLimit=True)
         parseMessages( groupDir, messages, 'group' )
 
 # fetch all users for the channel and return a map userId -> userName
@@ -242,7 +244,7 @@ def bootstrapKeyValues():
     print("Found {0} Public Channels".format(len(channels)))
     sleep(1)
 
-    groups = slack.groups.list().body['groups']
+    groups = slack.conversations.list(types='private_channel').body['channels']
     print("Found {0} Private Channels or Group DMs".format(len(groups)))
     sleep(1)
 
